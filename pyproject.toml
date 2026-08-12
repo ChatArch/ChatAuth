@@ -7,14 +7,37 @@ name = "ChatAuth"
 dynamic = ["version"]
 description = "Self-hosted OAuth-style refresh-token auth service for ChatArch."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "RexWzh", email = "rex@wzhecnu.cn"}]
-keywords = ["chatauth"]
+keywords = ["chatauth", "oauth", "jwt", "jwks", "chatarch"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "click>=8.1,<9.0",
+    "cryptography>=41,<47",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2,<2.0",
+    "pytest>=8.0,<10.0",
+    "twine>=6.0,<7.0",
+]
+
+[project.scripts]
+chatauth = "chatauth.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/ChatArch/ChatAuth"
+Repository = "https://github.com/ChatArch/ChatAuth"
+Issues = "https://github.com/ChatArch/ChatAuth/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "chatauth.__version__"}
