@@ -1,6 +1,10 @@
 from pathlib import Path
 import re
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 from chatauth.cli import TREE
 
@@ -42,6 +46,8 @@ def test_pyproject_docs_metadata_and_bounded_docs_extra():
     assert any(requirement.startswith("mkdocs-material>=") for requirement in docs)
     assert any(requirement.startswith("mkdocs-static-i18n>=") for requirement in docs)
     assert any(requirement.startswith("mike>=") for requirement in docs)
+    dev = data["project"]["optional-dependencies"]["dev"]
+    assert 'tomli>=2.0,<3.0; python_version < "3.11"' in dev
 
 
 def test_mkdocs_and_ci_include_docs_gate():

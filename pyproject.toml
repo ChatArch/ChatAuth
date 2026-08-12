@@ -28,6 +28,7 @@ dependencies = [
 dev = [
     "build>=1.2,<2.0",
     "pytest>=8.0,<10.0",
+    "tomli>=2.0,<3.0; python_version < \"3.11\"",
     "twine>=6.0,<7.0",
 ]
 docs = [
