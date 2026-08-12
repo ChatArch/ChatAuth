@@ -1,0 +1,67 @@
+site_name: ChatAuth 文档
+site_description: Self-hosted OAuth-style refresh-token auth service for ChatArch.
+site_url: https://arch.gh.wzhecnu.cn/ChatAuth/
+repo_url: https://github.com/ChatArch/ChatAuth
+repo_name: ChatArch/ChatAuth
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+          site_name: ChatAuth 文档
+        - locale: en
+          name: English
+          build: true
+          site_name: ChatAuth Documentation
+          nav_translations:
+            首页: Home
+            快速开始: Quickstart
+            CLI 树: CLI Tree
+            Python API: Python API
+            安全边界: Security Boundaries
+            测试与仓库规范: Tests and Repository Standards
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  alternate:
+    - name: 中文
+      link: /ChatAuth/
+      lang: zh
+    - name: English
+      link: /ChatAuth/en/
+      lang: en
+
+nav:
+  - 首页: index.md
+  - 快速开始: quickstart.md
+  - CLI 树: cli-tree.md
+  - Python API: api.md
+  - 安全边界: security.md
+  - 测试与仓库规范: repository-standards.md

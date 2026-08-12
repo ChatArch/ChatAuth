@@ -5,3 +5,7 @@ build/
 dist/
 site/
 *.egg-info/
+.chatauth-state/
+.runtime-token.json
+.refresh-token.txt
+.jwks.json
