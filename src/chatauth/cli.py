@@ -57,7 +57,7 @@ TREE = """chatauth  # Self-hosted OAuth-style refresh-token auth service for Cha
 │   └── clear  # Remove local runtime token store; writes only with --execute.
 └── verify  # Resource-side verification helpers.
     ├── jwks  # Export public JWKS.
-    └── access-token  # Verify stored access token audience/scope.
+    └── access-token  # Verify stored access token audience/scope from local state or JWKS.
 """
 
 
@@ -253,8 +253,13 @@ def verify_jwks(state_dir: Path | None) -> None:
 @_token_store_option
 @click.option("--audience", required=True)
 @click.option("--scope", "scopes", multiple=True)
-def verify_access_token_cmd(state_dir: Path | None, token_store: Path, audience: str, scopes: tuple[str, ...]) -> None:
-    result = verify_access_token(state_dir=state_dir, token_store=token_store, audience=audience, scopes=scopes)
+@click.option("--jwks-file", type=click.Path(path_type=Path), default=None, help="Public JWKS JSON file for resource-side verification without issuer private key access.")
+@click.option("--issuer", default=None, help="Expected issuer when verifying with --jwks-file.")
+def verify_access_token_cmd(state_dir: Path | None, token_store: Path, audience: str, scopes: tuple[str, ...], jwks_file: Path | None, issuer: str | None) -> None:
+    jwks = None
+    if jwks_file is not None:
+        jwks = json.loads(jwks_file.read_text(encoding="utf-8"))
+    result = verify_access_token(state_dir=state_dir, token_store=token_store, audience=audience, scopes=scopes, jwks=jwks, issuer=issuer)
     click.echo("valid" if result["valid"] else "invalid")
     if not result["valid"]:
         raise click.exceptions.Exit(1)

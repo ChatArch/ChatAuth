@@ -53,7 +53,8 @@ CLIENT_ID=$(chatauth admin clients list --state-dir "$STATE" | python -c 'import
 chatauth admin grants issue "$CLIENT_ID" machine:demo --state-dir "$STATE" --audience chatarch.internal --scope agent:run --handoff-file "$HANDOFF" --execute
 chatauth token import-refresh --state-dir "$STATE" --token-store "$STORE" --from-file "$HANDOFF" --execute
 chatauth token refresh --state-dir "$STATE" --token-store "$STORE" --execute
-chatauth verify access-token --state-dir "$STATE" --token-store "$STORE" --audience chatarch.internal --scope agent:run
+chatauth admin keys jwks --state-dir "$STATE" > ./.jwks.json
+chatauth verify access-token --token-store "$STORE" --jwks-file ./.jwks.json --issuer https://auth.example.test --audience chatarch.internal --scope agent:run
 ```
 
 CLI output intentionally reports booleans and metadata only. Raw refresh tokens are written only to explicit handoff/token-store files and are never printed by default.
@@ -66,9 +67,10 @@ Implemented in `0.1.x`:
 - local RSA signing key generation and JWKS export;
 - admin client/subject/refresh-grant creation;
 - refresh-token hashing and rotation;
+- client audience/scope enforcement when issuing refresh grants;
 - short-lived RS256 access-token issuing;
 - local runtime token-store import/refresh/status/clear;
-- resource-side JWT/audience/scope verification.
+- resource-side JWT/audience/scope verification from public JWKS without issuer private-key access.
 
 Reserved for future versions:
 

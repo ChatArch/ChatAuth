@@ -83,9 +83,26 @@ def _key_path(state_dir: str | os.PathLike[str] | Path | None) -> Path:
 
 def _connect(state_dir: str | os.PathLike[str] | Path | None) -> sqlite3.Connection:
     path = _db_path(state_dir)
+    if path.is_symlink():
+        raise RuntimeError("ChatAuth database path must not be a symlink")
     conn = sqlite3.connect(path)
+    try:
+        path.chmod(0o600)
+    except PermissionError:
+        pass
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _secure_open_private(path: Path) -> int:
+    if path.is_symlink():
+        raise RuntimeError(f"sensitive file path must not be a symlink: {path}")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    os.fchmod(fd, 0o600)
+    return fd
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
@@ -157,7 +174,11 @@ def _load_private_key(state_dir: str | os.PathLike[str] | Path | None) -> rsa.RS
 
 
 def _public_jwk(private_key: rsa.RSAPrivateKey, kid: str) -> dict[str, str]:
-    numbers = private_key.public_key().public_numbers()
+    return _public_key_jwk(private_key.public_key(), kid)
+
+
+def _public_key_jwk(public_key: rsa.RSAPublicKey, kid: str) -> dict[str, str]:
+    numbers = public_key.public_numbers()
     return {
         "kty": "RSA",
         "use": "sig",
@@ -166,6 +187,14 @@ def _public_jwk(private_key: rsa.RSAPrivateKey, kid: str) -> dict[str, str]:
         "n": _b64url(numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, "big")),
         "e": _b64url(numbers.e.to_bytes((numbers.e.bit_length() + 7) // 8, "big")),
     }
+
+
+def _public_key_from_jwk(jwk: dict[str, Any]) -> rsa.RSAPublicKey:
+    if jwk.get("kty") != "RSA" or jwk.get("alg") != "RS256":
+        raise RuntimeError("JWKS key must be RSA RS256")
+    n = int.from_bytes(_b64url_decode(str(jwk["n"])), "big")
+    e = int.from_bytes(_b64url_decode(str(jwk["e"])), "big")
+    return rsa.RSAPublicNumbers(e=e, n=n).public_key()
 
 
 def init_service(*, state_dir: str | os.PathLike[str] | Path | None = None, issuer: str = DEFAULT_ISSUER, execute: bool = False) -> dict[str, Any]:
@@ -183,17 +212,24 @@ def init_service(*, state_dir: str | os.PathLike[str] | Path | None = None, issu
     created_key = False
     kid = "main"
     key_file = _key_path(root)
+    if key_file.is_symlink():
+        raise RuntimeError("ChatAuth signing key path must not be a symlink")
     if not key_file.exists():
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        key_file.write_bytes(
-            key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
+        key_bytes = key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
         )
-        key_file.chmod(0o600)
+        fd = _secure_open_private(key_file)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(key_bytes)
         created_key = True
+    else:
+        try:
+            key_file.chmod(0o600)
+        except PermissionError:
+            pass
     _set_meta(conn, "issuer", issuer)
     _set_meta(conn, "created_at", _get_meta(conn, "created_at") or _iso(_now()))
     conn.execute(
@@ -266,19 +302,25 @@ def issue_refresh_grant(
         client = conn.execute("SELECT * FROM clients WHERE client_id = ? AND enabled = 1", (client_id,)).fetchone()
         if client is None:
             raise RuntimeError(f"unknown or disabled client: {client_id}")
+        if audience != client["audience"]:
+            raise RuntimeError("grant audience must match the client audience")
+        requested_scopes = _scopes(scopes)
+        allowed_scopes = set(json.loads(client["scopes_json"]))
+        if not set(requested_scopes).issubset(allowed_scopes):
+            raise RuntimeError("grant scope must be allowed by the client")
         subj = conn.execute("SELECT * FROM subjects WHERE subject = ? AND enabled = 1", (subject,)).fetchone()
         if subj is None:
             raise RuntimeError(f"unknown or disabled subject: {subject}")
         conn.execute(
             "INSERT INTO grants(grant_id, client_id, subject, audience, scopes_json, refresh_hash, expires_at, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
-            (grant_id, client_id, subject, audience, json.dumps(_scopes(scopes)), _hash_token(refresh), _iso(expires_at), _iso(_now())),
+            (grant_id, client_id, subject, audience, json.dumps(requested_scopes), _hash_token(refresh), _iso(expires_at), _iso(_now())),
         )
         conn.commit()
     written = False
     if handoff_file is not None:
         path = Path(handoff_file).expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        fd = _secure_open_private(path)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(refresh + "\n")
         written = True
@@ -301,16 +343,31 @@ def import_refresh_token(*, state_dir: str | os.PathLike[str] | Path | None, tok
 
 def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2, sort_keys=True)
-        fh.write("\n")
-    os.replace(tmp, path)
+    tmp = path.parent / f".{path.name}.{secrets.token_urlsafe(8)}.tmp"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(tmp, flags, 0o600)
     try:
-        path.chmod(0o600)
-    except PermissionError:
-        pass
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, sort_keys=True)
+            fh.write("\n")
+        os.replace(tmp, path)
+        try:
+            path.chmod(0o600)
+        except PermissionError:
+            pass
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _load_store(token_store: str | os.PathLike[str] | Path) -> dict[str, Any]:
@@ -375,9 +432,9 @@ def refresh_access_token(*, state_dir: str | os.PathLike[str] | Path | None, tok
         if cur.rowcount != 1:
             conn.rollback()
             raise RuntimeError("refresh token rotation conflict")
+        data.update({"refresh_token": new_refresh, "access_token": access_token, "access_token_expires_at": access_expires, "updated_at": now_iso})
+        _write_private_json(path, data)
         conn.commit()
-    data.update({"refresh_token": new_refresh, "access_token": access_token, "access_token_expires_at": access_expires, "updated_at": now_iso})
-    _write_private_json(path, data)
     return {"changed": True, "token_store": str(path), "refresh_token_rotated": True, "access_token_set": True, "access_token_expires_at": access_expires}
 
 
@@ -408,8 +465,17 @@ def export_jwks(*, state_dir: str | os.PathLike[str] | Path | None) -> dict[str,
     return {"keys": [_public_jwk(key, kid)]}
 
 
-def verify_access_token(*, state_dir: str | os.PathLike[str] | Path | None, token_store: str | os.PathLike[str] | Path, audience: str, scopes: Iterable[str] | None = None) -> dict[str, Any]:
-    _ensure_service(state_dir)
+def verify_access_token(
+    *,
+    state_dir: str | os.PathLike[str] | Path | None,
+    token_store: str | os.PathLike[str] | Path,
+    audience: str,
+    scopes: Iterable[str] | None = None,
+    jwks: dict[str, Any] | None = None,
+    issuer: str | None = None,
+) -> dict[str, Any]:
+    if jwks is None:
+        _ensure_service(state_dir)
     token = _load_store(token_store).get("access_token")
     if not isinstance(token, str):
         raise RuntimeError("token store has no access token")
@@ -420,13 +486,23 @@ def verify_access_token(*, state_dir: str | os.PathLike[str] | Path | None, toke
     signature = _b64url_decode(parts[2])
     header = json.loads(_b64url_decode(parts[0]))
     payload = json.loads(_b64url_decode(parts[1]))
-    key = _load_private_key(state_dir).public_key()
+    kid = header.get("kid")
+    if jwks is None:
+        key = _load_private_key(state_dir).public_key()
+    else:
+        keys = [key for key in jwks.get("keys", []) if isinstance(key, dict) and key.get("kid") == kid]
+        if not keys:
+            raise RuntimeError("JWKS has no matching key for access token kid")
+        key = _public_key_from_jwk(keys[0])
     try:
         key.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
     except Exception as exc:  # pragma: no cover - backend exception types vary
         raise RuntimeError("access token signature verification failed") from exc
-    with _connect(state_dir) as conn:
-        issuer = _get_meta(conn, "issuer", DEFAULT_ISSUER)
+    if issuer is None:
+        if state_dir is None:
+            raise RuntimeError("issuer is required when verifying with JWKS without local state")
+        with _connect(state_dir) as conn:
+            issuer = _get_meta(conn, "issuer", DEFAULT_ISSUER)
     required_scopes = set(_scopes(scopes))
     token_scopes = set(str(payload.get("scope", "")).split())
     valid = (
@@ -436,7 +512,7 @@ def verify_access_token(*, state_dir: str | os.PathLike[str] | Path | None, toke
         and int(payload.get("exp", 0)) > int(time.time())
         and required_scopes.issubset(token_scopes)
     )
-    return {"valid": valid, "subject": payload.get("sub"), "client_id": payload.get("client_id"), "audience": payload.get("aud"), "scopes": sorted(token_scopes), "kid": header.get("kid")}
+    return {"valid": valid, "subject": payload.get("sub"), "client_id": payload.get("client_id"), "audience": payload.get("aud"), "scopes": sorted(token_scopes), "kid": kid}
 
 
 def list_clients(*, state_dir: str | os.PathLike[str] | Path | None) -> dict[str, Any]:
