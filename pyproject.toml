@@ -28,7 +28,14 @@ dependencies = [
 dev = [
     "build>=1.2,<2.0",
     "pytest>=8.0,<10.0",
+    "tomli>=2.0,<3.0; python_version < \"3.11\"",
     "twine>=6.0,<7.0",
+]
+docs = [
+    "mkdocs>=1.6,<2.0",
+    "mkdocs-material>=9.5,<10.0",
+    "mkdocs-static-i18n>=1.2,<2.0",
+    "mike>=2.0,<3.0",
 ]
 
 [project.scripts]
@@ -36,6 +43,7 @@ chatauth = "chatauth.cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/ChatArch/ChatAuth"
+Documentation = "https://arch.gh.wzhecnu.cn/ChatAuth/"
 Repository = "https://github.com/ChatArch/ChatAuth"
 Issues = "https://github.com/ChatArch/ChatAuth/issues"
 
