@@ -16,7 +16,7 @@ ChatAuth 是 ChatArch 自托管的 OAuth-style refresh-token 鉴权服务内核�
 
     ---
 
-    查看真实 `chatauth --tree` 命令面，以及哪些命令会写状态、哪些命令只是读元数据。
+    查看真实 `chatauth --tree` / `--tree-brief` 命令面，以及哪些命令会写状态、哪些命令只是读元数据。
 
     [查看 CLI 树](cli-tree.md)
 

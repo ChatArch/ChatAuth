@@ -14,6 +14,7 @@ ChatAuth **不**复刻、假扮或绕过 `auth.openai.com`，也不生成任何�
 python -m pip install ChatAuth
 chatauth --version
 chatauth --tree
+chatauth --tree-brief
 ```
 
 ## 快速开始
@@ -87,42 +88,16 @@ valid
 
 ## CLI 树
 
-完整命令面见 [CLI 树](https://arch.gh.wzhecnu.cn/ChatAuth/cli-tree/)。源码测试会把文档中的 CLI tree 与真实 `chatauth --tree` 对齐。
+完整命令面见 [CLI 树](https://arch.gh.wzhecnu.cn/ChatAuth/cli-tree/)。`chatauth --tree` 从真实 Click registry 输出带参数签名的完整树；`chatauth --tree-brief` 输出相同节点与说明，但省略签名。源码测试会直接运行两个入口并与文档对齐。
 
-```text
-chatauth  # Self-hosted OAuth-style refresh-token auth service for ChatArch.
-├── --help  # Show help.
-├── --version  # Show installed version.
-├── --tree  # Print the registered CLI tree.
-├── health  # Check local ChatAuth state health.
-├── service  # Local ChatAuth service lifecycle.
-│   ├── init  # Plan/create local state DB and signing key; writes only with --execute.
-│   ├── run  # Reserved ASGI service runner; currently non-zero.
-│   └── doctor  # Inspect local state/config/key metadata without secrets.
-├── admin  # Local admin operations.
-│   ├── clients  # OAuth client registry.
-│   │   ├── list  # List safe client metadata.
-│   │   └── create  # Create a client; writes only with --execute.
-│   ├── subjects  # Principals that can receive refresh grants.
-│   │   ├── list  # List safe subject metadata.
-│   │   └── create  # Create a subject; writes only with --execute.
-│   ├── grants  # Refresh-token grant families.
-│   │   ├── list  # List safe grant metadata.
-│   │   └── issue  # Issue initial refresh token to a 0600 handoff file; writes only with --execute.
-│   └── keys  # Signing keys and JWKS.
-│       ├── list  # List signing-key metadata.
-│       └── jwks  # Export public JWKS.
-├── token  # Machine-side runtime token store operations.
-│   ├── import-refresh  # Import refresh token from a handoff file; writes only with --execute.
-│   ├── status  # Show token-store metadata without token values.
-│   ├── refresh  # Exchange stored refresh token for access token and rotated refresh token; writes only with --execute.
-│   └── clear  # Remove local runtime token store; writes only with --execute.
-└── verify  # Resource-side verification helpers.
-    ├── jwks  # Export public JWKS.
-    └── access-token  # Verify stored access token audience/scope from local state or JWKS.
+```bash
+chatauth --tree
+chatauth --tree-brief
 ```
 
 ## 开发验证
+
+完整开发与 release 约定见 [DEVELOP.md](DEVELOP.md)。
 
 ```bash
 python -m pip install -e '.[dev,docs]'

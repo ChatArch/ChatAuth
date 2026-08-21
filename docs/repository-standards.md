@@ -12,6 +12,7 @@
 | CLI command | `chatauth` |
 | docs URL | `https://arch.gh.wzhecnu.cn/ChatAuth/` |
 | Python floor | `>=3.10` |
+| CLI tree runtime | `chatstyle>=0.2.0,<0.3.0` |
 | 默认本地状态根 | `~/.chatarch/chatauth/` |
 
 `0.1.x` 尚未注册 ChatEnv provider；未来加入 profile/config/token-store 集成时，必须使用单一 `ChatAuth` namespace，避免同时出现多个配置目录或隐式 fallback。
@@ -24,23 +25,26 @@ python -m pytest -q
 mkdocs build --strict
 python -m build
 python -m twine check --strict dist/*
+chatauth --version
+chatauth --tree
+chatauth --tree-brief
 ```
 
 当前测试覆盖：
 
 | 文件 | 覆盖点 |
 | --- | --- |
-| `tests/test_cli_contract.py` | CLI tree、`service run` 非零、写命令 dry-run |
+| `tests/test_cli_contract.py` | version、ChatStyle full/brief CLI tree、`service run` 非零、写命令 dry-run |
 | `tests/test_auth_flow.py` | init/client/subject/grant/import/refresh/JWKS/verify 全闭环 |
 | `tests/test_security_regressions.py` | JWKS-only verify、audience/scope enforcement、私有文件权限、symlink 防护、DB/token-store rollback |
-| `tests/test_docs_contract.py` | 文档 CLI tree 与真实 tree 对齐、docs extras/URL/CI 文档构建 gate |
+| `tests/test_docs_contract.py` | 文档 full/brief CLI tree 与真实 registry 对齐、ChatStyle/docs extras/URL/CI gate |
 | `tests/test_version.py` | package version readback |
 
 ## Workflow 规范
 
 | Workflow | 触发 | 作用 |
 | --- | --- | --- |
-| `CI` | push / PR to `main` | Python 3.10/3.11/3.12 测试、CLI smoke、MkDocs strict build |
+| `CI` | push / PR to `main` | Python 3.10/3.11/3.12 测试、`--version`/full/brief tree smoke、MkDocs strict build |
 | `Preview Docs` | PR to `main` | 构建 PR 文档预览并评论 `https://arch.gh.wzhecnu.cn/ChatAuth/dev/` |
 | `Deploy Docs` | push to `main` | 发布正式文档到 `gh-pages:/` |
 | `Publish` | `v*` tag | OIDC Trusted Publishing 到 PyPI |
@@ -51,7 +55,7 @@ python -m twine check --strict dist/*
 
 - 默认中文文档，`.en.md` 为英文镜像。
 - 首页是导航 hub，不写成线性开发记录。
-- CLI 树必须来自真实 `chatauth --tree`，并由测试防 drift。
+- full/brief CLI 树必须来自真实 `chatauth --tree` / `--tree-brief`，并由测试防 drift。
 - Quickstart 必须跑通本地闭环，不能依赖真实 CRS/OpenAI/Codex 凭据。
 - public docs 不写私有路径、主机、Feishu/Lark ID、token mask 或 workspace 内部记录。
 

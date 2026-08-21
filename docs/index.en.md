@@ -16,7 +16,7 @@ ChatAuth is ChatArch's self-hosted OAuth-style refresh-token auth service kernel
 
     ---
 
-    Read the real `chatauth --tree` command surface and which commands mutate state.
+    Read the real `chatauth --tree` / `--tree-brief` command surface and which commands mutate state.
 
     [View the CLI tree](cli-tree.md)
 
