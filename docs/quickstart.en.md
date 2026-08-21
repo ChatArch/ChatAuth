@@ -8,6 +8,7 @@ This flow uses only local files. It does not need CRS, Redis, Nginx, or real Ope
 python -m pip install ChatAuth
 chatauth --version
 chatauth --tree
+chatauth --tree-brief
 ```
 
 ## Local smoke flow {#local-smoke}

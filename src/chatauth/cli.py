@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+from chatstyle import add_tree_option
 
 from . import __version__
 from .operations import (
@@ -28,38 +29,6 @@ from .operations import (
     verify_access_token,
 )
 
-TREE = """chatauth  # Self-hosted OAuth-style refresh-token auth service for ChatArch.
-├── --help  # Show help.
-├── --version  # Show installed version.
-├── --tree  # Print the registered CLI tree.
-├── health  # Check local ChatAuth state health.
-├── service  # Local ChatAuth service lifecycle.
-│   ├── init  # Plan/create local state DB and signing key; writes only with --execute.
-│   ├── run  # Reserved ASGI service runner; currently non-zero.
-│   └── doctor  # Inspect local state/config/key metadata without secrets.
-├── admin  # Local admin operations.
-│   ├── clients  # OAuth client registry.
-│   │   ├── list  # List safe client metadata.
-│   │   └── create  # Create a client; writes only with --execute.
-│   ├── subjects  # Principals that can receive refresh grants.
-│   │   ├── list  # List safe subject metadata.
-│   │   └── create  # Create a subject; writes only with --execute.
-│   ├── grants  # Refresh-token grant families.
-│   │   ├── list  # List safe grant metadata.
-│   │   └── issue  # Issue initial refresh token to a 0600 handoff file; writes only with --execute.
-│   └── keys  # Signing keys and JWKS.
-│       ├── list  # List signing-key metadata.
-│       └── jwks  # Export public JWKS.
-├── token  # Machine-side runtime token store operations.
-│   ├── import-refresh  # Import refresh token from a handoff file; writes only with --execute.
-│   ├── status  # Show token-store metadata without token values.
-│   ├── refresh  # Exchange stored refresh token for access token and rotated refresh token; writes only with --execute.
-│   └── clear  # Remove local runtime token store; writes only with --execute.
-└── verify  # Resource-side verification helpers.
-    ├── jwks  # Export public JWKS.
-    └── access-token  # Verify stored access token audience/scope from local state or JWKS.
-"""
-
 
 def _print(data: dict[str, Any]) -> None:
     click.echo(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True))
@@ -73,21 +42,17 @@ def _token_store_option(func):
     return click.option("--token-store", type=click.Path(path_type=Path), required=True, help="Runtime token store JSON path.")(func)
 
 
-@click.group(context_settings={"help_option_names": ["-h", "--help"]}, invoke_without_command=True)
+@click.group(name="chatauth", context_settings={"help_option_names": ["-h", "--help"]}, invoke_without_command=True)
 @click.version_option(__version__, prog_name="chatauth")
-@click.option("--tree", "show_tree", is_flag=True, help="Print the registered CLI tree.")
-@click.pass_context
-def cli(ctx: click.Context, show_tree: bool) -> None:
+@add_tree_option(renderer_options={"root_name": "chatauth"})
+def cli() -> None:
     """Self-hosted OAuth-style refresh-token auth service for ChatArch."""
-    if show_tree:
-        click.echo(TREE)
-        ctx.exit(0)
 
 
 @cli.command()
 @_state_option
 def health(state_dir: Path | None) -> None:
-    """Check local ChatAuth state health."""
+    """Check local ChatAuth state health without changing it."""
     _print(doctor(state_dir=state_dir))
 
 
@@ -101,17 +66,20 @@ def service() -> None:
 @click.option("--issuer", default=DEFAULT_ISSUER, show_default=True)
 @click.option("--execute", is_flag=True, help="Actually create/update local state.")
 def service_init(state_dir: Path | None, issuer: str, execute: bool) -> None:
+    """Plan local state setup; --execute creates the database and signing key."""
     _print(init_service(state_dir=state_dir, issuer=issuer, execute=execute))
 
 
 @service.command("run")
 def service_run() -> None:
+    """Reserved ASGI service runner; exits non-zero in ChatAuth 0.1.x."""
     raise click.ClickException("service run is reserved and not implemented in ChatAuth 0.1.x")
 
 
 @service.command("doctor")
 @_state_option
 def service_doctor(state_dir: Path | None) -> None:
+    """Inspect local state, config, and key metadata without secrets."""
     _print(doctor(state_dir=state_dir))
 
 
@@ -128,6 +96,7 @@ def clients() -> None:
 @clients.command("list")
 @_state_option
 def clients_list(state_dir: Path | None) -> None:
+    """List safe OAuth client metadata without credentials."""
     _print(list_clients(state_dir=state_dir))
 
 
@@ -138,6 +107,7 @@ def clients_list(state_dir: Path | None) -> None:
 @click.option("--scope", "scopes", multiple=True)
 @click.option("--execute", is_flag=True)
 def clients_create(name: str, state_dir: Path | None, audience: str, scopes: tuple[str, ...], execute: bool) -> None:
+    """Plan an OAuth client; --execute writes it to local state."""
     _print(create_client(state_dir=state_dir, name=name, audience=audience, scopes=scopes, execute=execute))
 
 
@@ -149,6 +119,7 @@ def subjects() -> None:
 @subjects.command("list")
 @_state_option
 def subjects_list(state_dir: Path | None) -> None:
+    """List safe subject metadata without credentials."""
     _print(list_subjects(state_dir=state_dir))
 
 
@@ -158,6 +129,7 @@ def subjects_list(state_dir: Path | None) -> None:
 @click.option("--display-name", default=None)
 @click.option("--execute", is_flag=True)
 def subjects_create(subject: str, state_dir: Path | None, display_name: str | None, execute: bool) -> None:
+    """Plan a subject; --execute writes it to local state."""
     _print(create_subject(state_dir=state_dir, subject=subject, display_name=display_name, execute=execute))
 
 
@@ -169,6 +141,7 @@ def grants() -> None:
 @grants.command("list")
 @_state_option
 def grants_list(state_dir: Path | None) -> None:
+    """List safe refresh-grant metadata without token values."""
     _print(list_grants(state_dir=state_dir))
 
 
@@ -182,6 +155,7 @@ def grants_list(state_dir: Path | None) -> None:
 @click.option("--handoff-file", type=click.Path(path_type=Path), required=True)
 @click.option("--execute", is_flag=True)
 def grants_issue(client_id: str, subject: str, state_dir: Path | None, audience: str, scopes: tuple[str, ...], ttl_days: int, handoff_file: Path, execute: bool) -> None:
+    """Plan a refresh grant; --execute writes state and a private handoff file."""
     _print(issue_refresh_grant(state_dir=state_dir, client_id=client_id, subject=subject, audience=audience, scopes=scopes, ttl_days=ttl_days, handoff_file=handoff_file, execute=execute))
 
 
@@ -193,12 +167,14 @@ def keys() -> None:
 @keys.command("list")
 @_state_option
 def keys_list(state_dir: Path | None) -> None:
+    """List signing-key metadata without private key material."""
     _print(list_keys(state_dir=state_dir))
 
 
 @keys.command("jwks")
 @_state_option
 def keys_jwks(state_dir: Path | None) -> None:
+    """Export public JWKS without private key material."""
     _print(export_jwks(state_dir=state_dir))
 
 
@@ -213,12 +189,14 @@ def token() -> None:
 @click.option("--from-file", "from_file", type=click.Path(path_type=Path), required=True)
 @click.option("--execute", is_flag=True)
 def token_import_refresh(state_dir: Path | None, token_store: Path, from_file: Path, execute: bool) -> None:
+    """Plan refresh-token import; --execute writes the private token store."""
     _print(import_refresh_token(state_dir=state_dir, token_store=token_store, from_file=from_file, execute=execute))
 
 
 @token.command("status")
 @_token_store_option
 def token_status_cmd(token_store: Path) -> None:
+    """Show token-store metadata without token values."""
     _print(token_status(token_store=token_store))
 
 
@@ -227,6 +205,7 @@ def token_status_cmd(token_store: Path) -> None:
 @_token_store_option
 @click.option("--execute", is_flag=True)
 def token_refresh(state_dir: Path | None, token_store: Path, execute: bool) -> None:
+    """Plan token rotation; --execute updates the private token store."""
     _print(refresh_access_token(state_dir=state_dir, token_store=token_store, execute=execute))
 
 
@@ -234,6 +213,7 @@ def token_refresh(state_dir: Path | None, token_store: Path, execute: bool) -> N
 @_token_store_option
 @click.option("--execute", is_flag=True)
 def token_clear(token_store: Path, execute: bool) -> None:
+    """Plan token-store removal; --execute deletes the local store."""
     _print(clear_token_store(token_store=token_store, execute=execute))
 
 
@@ -245,6 +225,7 @@ def verify() -> None:
 @verify.command("jwks")
 @_state_option
 def verify_jwks(state_dir: Path | None) -> None:
+    """Export public JWKS for resource-side verification."""
     _print(export_jwks(state_dir=state_dir))
 
 
@@ -256,6 +237,7 @@ def verify_jwks(state_dir: Path | None) -> None:
 @click.option("--jwks-file", type=click.Path(path_type=Path), default=None, help="Public JWKS JSON file for resource-side verification without issuer private key access.")
 @click.option("--issuer", default=None, help="Expected issuer when verifying with --jwks-file.")
 def verify_access_token_cmd(state_dir: Path | None, token_store: Path, audience: str, scopes: tuple[str, ...], jwks_file: Path | None, issuer: str | None) -> None:
+    """Verify the stored access token and print only valid or invalid."""
     jwks = None
     if jwks_file is not None:
         jwks = json.loads(jwks_file.read_text(encoding="utf-8"))

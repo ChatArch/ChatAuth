@@ -12,6 +12,7 @@ This page records the current ChatArch repository standards for ChatAuth so futu
 | CLI command | `chatauth` |
 | docs URL | `https://arch.gh.wzhecnu.cn/ChatAuth/` |
 | Python floor | `>=3.10` |
+| CLI tree runtime | `chatstyle>=0.2.0,<0.3.0` |
 | default local state root | `~/.chatarch/chatauth/` |
 
 `0.1.x` does not register a ChatEnv provider yet. When profile/config/token-store integration is added, it must use one canonical `ChatAuth` namespace instead of multiple config directories or hidden fallback paths.
@@ -24,23 +25,26 @@ python -m pytest -q
 mkdocs build --strict
 python -m build
 python -m twine check --strict dist/*
+chatauth --version
+chatauth --tree
+chatauth --tree-brief
 ```
 
 Current test coverage:
 
 | File | Coverage |
 | --- | --- |
-| `tests/test_cli_contract.py` | CLI tree, non-zero `service run`, dry-run mutation commands |
+| `tests/test_cli_contract.py` | version, ChatStyle full/brief CLI tree, non-zero `service run`, dry-run mutation commands |
 | `tests/test_auth_flow.py` | init/client/subject/grant/import/refresh/JWKS/verify full loop |
 | `tests/test_security_regressions.py` | JWKS-only verify, audience/scope enforcement, private file permissions, symlink protection, DB/token-store rollback |
-| `tests/test_docs_contract.py` | documented CLI tree aligned to real tree, docs extras/URL/CI docs build gate |
+| `tests/test_docs_contract.py` | documented full/brief CLI trees aligned to the real registry, ChatStyle/docs extras/URL/CI gates |
 | `tests/test_version.py` | package version readback |
 
 ## Workflow standards
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| `CI` | push / PR to `main` | Python 3.10/3.11/3.12 tests, CLI smoke, MkDocs strict build |
+| `CI` | push / PR to `main` | Python 3.10/3.11/3.12 tests, `--version`/full/brief tree smoke, MkDocs strict build |
 | `Preview Docs` | PR to `main` | build PR docs preview and comment `https://arch.gh.wzhecnu.cn/ChatAuth/dev/` |
 | `Deploy Docs` | push to `main` | deploy formal docs to `gh-pages:/` |
 | `Publish` | `v*` tag | OIDC Trusted Publishing to PyPI |
@@ -51,7 +55,7 @@ Merge is not release. Real `0.1.x+` releases require explicit user approval, a t
 
 - Chinese is the default language; `.en.md` files are English mirrors.
 - The home page is a navigation hub, not a linear development log.
-- The CLI tree must come from real `chatauth --tree` output and be guarded by tests.
+- The full and brief CLI trees must come from real `chatauth --tree` / `--tree-brief` output and be guarded by tests.
 - Quickstart must run locally and must not depend on real CRS/OpenAI/Codex credentials.
 - Public docs must not contain private paths, hostnames, Feishu/Lark IDs, token masks, or internal workspace records.
 

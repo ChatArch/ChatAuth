@@ -14,6 +14,7 @@ ChatAuth does **not** imitate `auth.openai.com`, bypass vendor auth, or generate
 python -m pip install ChatAuth
 chatauth --version
 chatauth --tree
+chatauth --tree-brief
 ```
 
 ## Quickstart
@@ -87,9 +88,11 @@ Implemented in `0.1.x`:
 
 ## CLI tree
 
-See [CLI Tree](https://arch.gh.wzhecnu.cn/ChatAuth/en/cli-tree/) for the complete command surface. Tests keep the documented tree aligned with the real `chatauth --tree` output.
+See [CLI Tree](https://arch.gh.wzhecnu.cn/ChatAuth/en/cli-tree/) for the complete command surface. `chatauth --tree` renders the real Click registry with argument and option signatures; `chatauth --tree-brief` renders the same nodes and descriptions without signatures. Tests run both entry points and keep their output aligned with the documentation.
 
 ## Development checks
+
+See [DEVELOP.md](DEVELOP.md) for the complete development and release contract.
 
 ```bash
 python -m pip install -e '.[dev,docs]'

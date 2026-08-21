@@ -8,6 +8,7 @@
 python -m pip install ChatAuth
 chatauth --version
 chatauth --tree
+chatauth --tree-brief
 ```
 
 ## 本地 smoke flow {#local-smoke}

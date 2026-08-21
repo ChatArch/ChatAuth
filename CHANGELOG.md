@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-08-21
+
+- 将顶层 CLI tree 迁移到 `chatstyle>=0.2.0,<0.3.0` 的共享 Click runtime，移除手写 tree 常量。
+- 新增 `chatauth --tree-brief`，保留真实注册命令与说明并省略参数签名。
+- 显式固定公共根命令名为 `chatauth`，并为所有 group/leaf 补齐 side-effect 与敏感信息边界说明。
+- CI 新增已安装 console script 的 `--tree-brief` 回读，测试同时校验 full/brief tree 与文档一致。
 - 新增正式 MkDocs 文档站：中文默认页面 + 英文镜像页面。
 - 扩展 README quickstart、CLI 树、Python API、安全边界、测试与仓库规范文档。
 - 新增文档漂移测试，并让 CI 执行 `mkdocs build --strict`。

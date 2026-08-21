@@ -25,4 +25,5 @@ jobs:
       - run: python -m pytest -q
       - run: chatauth --version
       - run: chatauth --tree
+      - run: chatauth --tree-brief
       - run: mkdocs build --strict
